@@ -8,7 +8,7 @@ MQTT-based Command & Control (C&C) system with encrypted communication using AES
 **Requirements**: Python 3.11+, Docker (optional)
 
 ## Requirements
-Install dependencies from `requirements.txt`:[1]
+Install dependencies from `requirements.txt`:
 
 ```
 paho-mqtt
@@ -56,7 +56,7 @@ python3 bot.py
 - Auto-identifies via hostname (`BOT_ALIVE:<hostname>`)
 - Executes: `w`, `id`, `ls <path>`, `file read`, `binary exec`
 - 10s command timeout
-- Volume mounts: `/`, `/home`, `/etc/passwd`, `/etc/group`[2]
+- Volume mounts: `/`, `/home`, `/etc/passwd`, `/etc/group`
 
 ## Docker Setup
 ```bash
@@ -74,9 +74,9 @@ docker-compose run --rm bot #in second terminal
 **Services:**
 - `mqtt-bot`: Runs `bot.py` with host filesystem access
 - `mqtt-controller`: Runs `controller.py` interactively
-- Custom bridge network `mqtt-network`[2]
+- Custom bridge network `mqtt-network`
 
-**Dockerfile Features**:[3]
+**Dockerfile Features**:
 - Python 3.11 slim
 - Host filesystem mounts for persistence
 
@@ -196,7 +196,7 @@ def decode_command(num_str):    # Returns command name or None
 ```
 
 ### AES Encryption
-All responses/parameters encrypted via `AESCipher.py`.[5]
+All responses/parameters encrypted via `AESCipher.py`.
 Command numbers sent in plaintext (obfuscated via prefixes).
 
 ## File Structure
