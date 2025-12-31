@@ -1,0 +1,29 @@
+
+
+services:
+  bot:
+    build: .
+    command: python3 bot.py
+    stdin_open: true
+    tty: true
+    networks:
+      - mqtt-network
+    container_name: mqtt-bot
+    volumes:
+      - /:/host:ro
+      - /etc/passwd:/etc/host_passwd:ro
+      - /etc/group:/etc/host_group:ro
+      - /home:/host_home:ro
+
+  controller:
+    build: .
+    command: python3 controller.py
+    stdin_open: true
+    tty: true
+    networks:
+      - mqtt-network
+    container_name: mqtt-controller
+
+networks:
+  mqtt-network:
+    driver: bridge
