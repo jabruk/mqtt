@@ -178,13 +178,13 @@ Mine:    03491 → is_valid_command("03491") = True (prefix 0349∈VALID_PREFIXE
 ```
 
 ### Stealth Features Summary
-✅ **Numeric commands** (5 digits) match legitimate IoT traffic  
-✅ **Prefix whitelist** prevents foreign command execution  
-✅ **Prefix starts with 0** avoids legitimate traffic collision  
-✅ **Encrypted parameters** look like normal Base64 payloads  
-✅ **Encrypted responses** maintain payload security  
-✅ **QoS=1** ensures reliable delivery  
-✅ **Random prefixes** prevent pattern detection  
+ **Numeric commands** (5 digits) match legitimate IoT traffic  
+ **Prefix whitelist** prevents foreign command execution  
+ **Prefix starts with 0** avoids legitimate traffic collision  
+ **Encrypted parameters** look like normal Base64 payloads  
+ **Encrypted responses** maintain payload security  
+ **QoS=1** ensures reliable delivery  
+ **Random prefixes** prevent pattern detection  
 
 **Result**: Traffic signature matches screenshot example perfectly.
 ```
