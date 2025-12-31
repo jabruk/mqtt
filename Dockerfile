@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && mkdir -p /var/run/sshd \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m botuser && echo "botuser:botpass" | chpasswd
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
